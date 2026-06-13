@@ -248,7 +248,8 @@ def main():
     ttop = np.where(tmask, ttop, np.nan)
     tzz = (ttop - z0) * VE
 
-    cb = lambda title: dict(title=title, len=0.62, x=0.0, thickness=14)
+    # colorbars parked mid-left (área laranja), well below the dropdown block
+    cb = lambda title: dict(title=title, len=0.55, x=0.0, y=0.40, yanchor="middle", thickness=14)
 
     # ===== traces =====
     fig = go.Figure()
@@ -284,7 +285,8 @@ def main():
     fig.add_trace(go.Scatter3d(**base, name="K", visible=False,
         marker=dict(size=MS, color=Klog, colorscale="RdBu", reversescale=False,
                     cmin=klo, cmax=khi, opacity=0.85,
-                    colorbar=dict(title="Kx (m/d)<br>azul=alto", len=0.78, x=0.0, thickness=15,
+                    colorbar=dict(title="Kx (m/d)<br>azul=alto", len=0.55, x=0.0, y=0.40,
+                                  yanchor="middle", thickness=15,
                                   tickvals=ktv, ticktext=[f"{10**v:.2g}" for v in ktv])),
         customdata=np.round(Ks, 4), hovertemplate="Kx %{customdata:.4g} m/d<extra></extra>"))
     # 4 Sy (continuous red->blue, blue=high)
@@ -301,7 +303,8 @@ def main():
     fig.add_trace(go.Scatter3d(**base, name="Ss", visible=False,
         marker=dict(size=MS, color=Sslog, colorscale="RdBu", reversescale=False,
                     cmin=sslo, cmax=sshi, opacity=0.85,
-                    colorbar=dict(title="Ss (1/m)<br>azul=alto", len=0.78, x=0.0, thickness=15,
+                    colorbar=dict(title="Ss (1/m)<br>azul=alto", len=0.55, x=0.0, y=0.40,
+                                  yanchor="middle", thickness=15,
                                   tickvals=stv, ticktext=[f"{10**v:.1e}" for v in stv])),
         customdata=Sss, hovertemplate="Ss %{customdata:.2e} 1/m<extra></extra>"))
     # 6 Recarga (continuous Viridis — Vini: variáveis contínuas ficam em rampa contínua)
@@ -392,34 +395,77 @@ def main():
             f"(mostrando {sample.size:,}) · VE ×{VE:.0f} · {nsp} períodos (t→{int(times[-1])}d)")
 
     fig.update_layout(
-        title=dict(text=head_title, font=dict(size=13), x=0.01, xanchor="left"),
+        # área azul: plot expandido — margens mínimas, scene ocupa todo o container
+        title=dict(text=head_title, font=dict(size=13, color="#33445a"),
+                   x=0.01, xanchor="left", y=0.985, yanchor="top"),
         scene=dict(xaxis_title="x (m)", yaxis_title="y (m)",
                    zaxis_title=f"cota (m, ×{VE:.0f})", aspectmode="data",
+                   domain=dict(x=[0.0, 1.0], y=[0.0, 1.0]),
                    camera=dict(eye=dict(x=1.5, y=-1.6, z=1.1)), bgcolor="white"),
+        # área laranja: título → label → dropdown espaçados; colorbar fica em y=0.40
         updatemenus=[dict(type="dropdown", direction="down", showactive=True,
-                          x=0.0, y=1.10, xanchor="left", buttons=buttons,
-                          pad={"r": 6, "t": 4},
+                          x=0.0, y=0.90, xanchor="left", buttons=buttons,
+                          pad={"r": 8, "t": 6},
                           bgcolor="rgba(30,30,40,0.97)", bordercolor="rgba(100,160,255,0.85)",
                           borderwidth=2, font=dict(size=13, color="#e0e8ff", family="Arial"))],
         sliders=[dict(active=len(sp_idx) - 1, currentvalue={"prefix": "Dia "},
-                      pad={"t": 30}, steps=steps,
-                      x=0.18, len=0.66)],
-        margin=dict(l=0, r=0, t=70, b=0), paper_bgcolor="white",
+                      pad={"t": 18}, steps=steps, x=0.18, len=0.66)],
+        margin=dict(l=0, r=0, t=28, b=0), paper_bgcolor="white",
         legend=dict(x=0.0, y=0.0, bgcolor="rgba(255,255,255,0.7)"),
         annotations=[
-            dict(text="Propriedade ▾", x=0.0, y=1.155, xref="paper", yref="paper",
-                 showarrow=False, font=dict(size=12, color="#33445a")),
-            dict(text=meta, x=0.5, y=-0.02, xref="paper", yref="paper", xanchor="center",
-                 showarrow=False, font=dict(size=10, color="#5a6b82"))])
+            dict(text="Propriedade ▾", x=0.0, y=0.95, xref="paper", yref="paper",
+                 showarrow=False, font=dict(size=12, color="#33445a"))])
+    _META = meta  # carried into the calibration panel (área roxa) instead of a footer
 
     log(f"writing {OUT_HTML}  ({N_TOTAL} traces, {len(sp_idx)} slider frames)")
     fig.write_html(OUT_HTML, include_plotlyjs="cdn", full_html=True,
                    config={"responsive": True, "displaylogo": False})
-    # Plotly omits the doctype/lang; prepend a valid HTML5 declaration.
+
+    # ---- layout post-process (session 1598, Vini feedback — CSS/HTML only) ----
+    active_br = f"{nactive:,}".replace(",", ".")     # pt-BR thousands
+    shown_br = f"{int(sample.size):,}".replace(",", ".")
+    css = """
+<style>
+:root{--rox:#7b4fb5;}
+html,body{height:100%;margin:0;padding:0;background:#fff;}
+/* área azul: plot ocupa a viewport inteira */
+.plotly-graph-div{width:100vw !important;height:100vh !important;}
+/* área roxa: caixinha de parâmetros de calibração, canto superior direito */
+#calib-panel{position:fixed;top:14px;right:14px;width:290px;z-index:1000;
+  background:rgba(247,243,252,0.96);border:2px solid var(--rox);border-radius:10px;
+  padding:10px 13px 11px;font:12px/1.45 Arial,Helvetica,sans-serif;color:#2c2540;
+  box-shadow:0 4px 14px rgba(80,40,130,0.22);}
+#calib-panel h4{margin:0 0 7px;font-size:13px;color:#5b2d91;
+  border-bottom:1px solid #d8c7ee;padding-bottom:4px;}
+#calib-panel .grp{margin:0 0 9px;} #calib-panel .grp:last-child{margin-bottom:0;}
+#calib-panel b{color:#5b2d91;display:block;margin-bottom:2px;font-size:11.5px;}
+#calib-panel .dim{color:#7a7290;font-size:11px;}
+#calib-panel .mono{font-variant-numeric:tabular-nums;}
+@media(max-width:760px){#calib-panel{position:static;width:auto;margin:8px;}}
+</style>"""
+    panel = f"""
+<div id="calib-panel">
+  <h4>Parâmetros de calibração — v02</h4>
+  <div class="grp"><b>Métricas globais</b>
+    <span class="mono">MAE 0,237 m · RMSE 0,299 m · R 0,5734</span><br>
+    malha 19×403×577 · VE ×12<br>
+    {active_br} células ativas ({shown_br} mostradas)<br>
+    48 períodos (t = 1096 d)</div>
+  <div class="grp"><b>Sy livres — 5 zonas (PEST++ v02B)</b>
+    <span class="mono">Z3 0,18 · Z4 0,22 · Z5 0,15</span><br>
+    <span class="mono">Z6 0,20 · Z7 0,12</span><br>
+    <span class="dim">bounds 0,05–0,35 · Z1/Z2/Z8 fixos</span></div>
+  <div class="grp"><b>Base v02 congelada</b>
+    K SS — 9 Kxy + 9 Kz (phi 35,95)<br>
+    Ss por zona · RCH Thornthwaite (6 zonas)<br>
+    Pump schedule fixo · CHD / GHB / OC</div>
+</div>"""
     html = open(OUT_HTML, encoding="utf-8").read()
     if not html.lstrip().lower().startswith("<!doctype"):
         html = "<!DOCTYPE html>\n" + html.replace("<html>", '<html lang="pt-BR">', 1)
-        open(OUT_HTML, "w", encoding="utf-8").write(html)
+    html = html.replace("</head>", css + "\n</head>", 1)
+    html = html.replace("</body>", panel + "\n</body>", 1)
+    open(OUT_HTML, "w", encoding="utf-8").write(html)
     log(f"DONE {OUT_HTML} ({os.path.getsize(OUT_HTML)/1e6:.2f} MB) in {time.time()-t0:.1f}s")
     print("LEGEND:", json.dumps(legend, default=float)[:1200])
 
