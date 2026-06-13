@@ -273,30 +273,44 @@ def main():
                     cmin=smin, cmax=smax, opacity=0.85,
                     colorbar=cb(f"IC carga (m)<br>{smin:.1f}–{smax:.1f}")),
         hovertemplate="IC %{marker.color:.2f} m<extra></extra>"))
-    # 3 K zones (categorical, distinct colors + value legend)
+    # Vini 2026-06-13 (session 1594): K, Sy, Ss on a RED->BLUE ramp where BLUE=HIGH
+    # ("valores maiores = azul = mais água andando"). Discrete zone values still read
+    # as distinct bands on the ramp, so the zones stay evident. Plotly "RdBu" maps
+    # cmin->red, cmax->blue (reversescale=False), i.e. high=blue exactly as asked.
+    # 3 K (continuous red->blue, blue=high, log10 — spans ~4 orders 0.03..191 m/d)
+    Klog = np.log10(np.where(Ks > 0, Ks, np.nan))
+    klo, khi = float(np.nanmin(Klog)), float(np.nanmax(Klog))
+    ktv = np.linspace(klo, khi, 5)
     fig.add_trace(go.Scatter3d(**base, name="K", visible=False,
-        marker=dict(size=MS, color=kzi, colorscale=cat_scale(len(ku)), cmin=0, cmax=len(ku),
-                    opacity=0.85, colorbar=dict(title=f"Kx (m/d) · {len(ku)} zonas", len=0.85, x=0.0,
-                    thickness=15, tickvals=[i + .5 for i in range(len(ku))], ticktext=ktt)),
+        marker=dict(size=MS, color=Klog, colorscale="RdBu", reversescale=False,
+                    cmin=klo, cmax=khi, opacity=0.85,
+                    colorbar=dict(title="Kx (m/d)<br>azul=alto", len=0.78, x=0.0, thickness=15,
+                                  tickvals=ktv, ticktext=[f"{10**v:.2g}" for v in ktv])),
         customdata=np.round(Ks, 4), hovertemplate="Kx %{customdata:.4g} m/d<extra></extra>"))
-    # 4 Sy zones (categorical)
+    # 4 Sy (continuous red->blue, blue=high)
+    symin, symax = float(np.nanmin(Sys)), float(np.nanmax(Sys))
     fig.add_trace(go.Scatter3d(**base, name="Sy", visible=False,
-        marker=dict(size=MS, color=syi, colorscale=cat_scale(len(syu)), cmin=0, cmax=len(syu),
-                    opacity=0.85, colorbar=dict(title=f"Sy (–) · {len(syu)} zonas", len=0.85, x=0.0,
-                    thickness=15, tickvals=[i + .5 for i in range(len(syu))], ticktext=sytt)),
-        customdata=Sys, hovertemplate="Sy %{customdata:.3g}<extra></extra>"))
-    # 5 Ss zones (categorical)
+        marker=dict(size=MS, color=Sys, colorscale="RdBu", reversescale=False,
+                    cmin=symin, cmax=symax, opacity=0.85,
+                    colorbar=cb(f"Sy (–)<br>azul=alto<br>{symin:g}–{symax:g}")),
+        hovertemplate="Sy %{marker.color:.3g}<extra></extra>"))
+    # 5 Ss (continuous red->blue, blue=high, log10)
+    Sslog = np.log10(np.where(Sss > 0, Sss, np.nan))
+    sslo, sshi = float(np.nanmin(Sslog)), float(np.nanmax(Sslog))
+    stv = np.linspace(sslo, sshi, 5)
     fig.add_trace(go.Scatter3d(**base, name="Ss", visible=False,
-        marker=dict(size=MS, color=ssi, colorscale=cat_scale(len(ssu)), cmin=0, cmax=len(ssu),
-                    opacity=0.85, colorbar=dict(title=f"Ss (1/m) · {len(ssu)} zonas", len=0.85, x=0.0,
-                    thickness=15, tickvals=[i + .5 for i in range(len(ssu))], ticktext=sstt)),
+        marker=dict(size=MS, color=Sslog, colorscale="RdBu", reversescale=False,
+                    cmin=sslo, cmax=sshi, opacity=0.85,
+                    colorbar=dict(title="Ss (1/m)<br>azul=alto", len=0.78, x=0.0, thickness=15,
+                                  tickvals=stv, ticktext=[f"{10**v:.1e}" for v in stv])),
         customdata=Sss, hovertemplate="Ss %{customdata:.2e} 1/m<extra></extra>"))
-    # 6 Recharge zones (categorical)
+    # 6 Recarga (continuous Viridis — Vini: variáveis contínuas ficam em rampa contínua)
+    rmin, rmax = float(np.nanmin(Rchs)), float(np.nanmax(Rchs))
     fig.add_trace(go.Scatter3d(**base, name="Recarga", visible=False,
-        marker=dict(size=MS, color=rci, colorscale=cat_scale(len(rcu)), cmin=0, cmax=len(rcu),
-                    opacity=0.85, colorbar=dict(title=f"RCH SP0 (m/d) · {len(rcu)} zonas", len=0.85, x=0.0,
-                    thickness=15, tickvals=[i + .5 for i in range(len(rcu))], ticktext=rctt)),
-        customdata=Rchs, hovertemplate="recarga %{customdata:.3g} m/d (SP0)<extra></extra>"))
+        marker=dict(size=MS, color=Rchs, colorscale="Viridis",
+                    cmin=rmin, cmax=rmax, opacity=0.85,
+                    colorbar=cb(f"Recarga (m/d)<br>{rmin:.1e}–{rmax:.1e}")),
+        hovertemplate="recarga %{marker.color:.2e} m/d (SP0)<extra></extra>"))
     # 7 Porosity (NOT a flow parameter — neutral gray geometry + note in title)
     fig.add_trace(go.Scatter3d(**base, name="Porosidade", visible=False,
         marker=dict(size=MS, color="#7f8c8d", opacity=0.5),
@@ -343,14 +357,14 @@ def main():
         ("Carga hidráulica (HDS)", vis(IDX["head"]), head_title),
         ("Rebaixamento (SS−transiente)", vis(IDX["draw"]),
          "Autenried v02 — Rebaixamento (rampa contínua Viridis)"),
-        ("K — condutividade (zonas)", vis(IDX["k"]),
-         f"Autenried v02 — Kx calibrado (SS PEST++): {len(ku)} zonas distintas, m/d"),
-        ("Sy — rendimento específico (zonas)", vis(IDX["sy"], ghb=False, chd=False),
-         f"Autenried v02 — Sy por zona: {len(syu)} valores (literatura v02 / ajuste)"),
-        ("Ss — armazenamento específico (zonas)", vis(IDX["ss"], ghb=False, chd=False),
-         f"Autenried v02 — Ss por zona: {len(ssu)} valores, 1/m"),
-        ("Recarga (RCH, zonas)", vis(IDX["rch"], ghb=False, chd=False),
-         f"Autenried v02 — Recarga RCH SP0: {len(rcu)} zonas (transiente mensal Thornthwaite)"),
+        ("K — condutividade (vermelho→azul, azul=alto)", vis(IDX["k"]),
+         f"Autenried v02 — Kx calibrado (SS PEST++), rampa vermelho→azul · azul=alto · {len(ku)} valores, m/d"),
+        ("Sy — rendimento específico (azul=alto)", vis(IDX["sy"], ghb=False, chd=False),
+         f"Autenried v02 — Sy, rampa vermelho→azul · azul=alto · {len(syu)} valores"),
+        ("Ss — armazenamento específico (azul=alto)", vis(IDX["ss"], ghb=False, chd=False),
+         f"Autenried v02 — Ss, rampa vermelho→azul · azul=alto · {len(ssu)} valores, 1/m"),
+        ("Recarga (RCH, contínua)", vis(IDX["rch"], ghb=False, chd=False),
+         f"Autenried v02 — Recarga RCH SP0 (contínua, transiente mensal Thornthwaite)"),
         ("Porosidade (ver nota)", vis(IDX["poro"], ghb=False, chd=False),
          "Autenried v02 — " + POR_NOTE),
         ("Células GHB", vis(None, ghb=True, chd=False),
